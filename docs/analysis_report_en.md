@@ -1,6 +1,6 @@
 # Olist: sales, logistics and customer satisfaction analysis
 
-*Analysis report · **[Your full name]** · Data: Olist Brazilian E-Commerce (Kaggle) · Amounts in Brazilian reais (R$); revenue is item price excluding shipping*
+*Analysis report · **Said Ben Oukhanchouch** · Data: Olist Brazilian E-Commerce (Kaggle) · Amounts in Brazilian reais (R$); revenue is item price excluding shipping*
 
 [Version française](rapport_analyse_fr.md) · [README](../README.md)
 

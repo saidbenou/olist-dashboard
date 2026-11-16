@@ -1,124 +1,112 @@
-# Dashboard e-commerce Olist · PostgreSQL, modèle en étoile et Power BI
+# Olist E-commerce Dashboard · PostgreSQL, Star Schema and Power BI
 
-J'ai construit ce projet de bout en bout pour mon portfolio Data Analyst / BI. Je pars d'un jeu de données brut de 1,5 million de lignes et j'arrive à un dashboard Power BI de 5 pages. Entre les deux, un entrepôt PostgreSQL en modèle en étoile, alimenté par un ETL Python, et des KPI que j'ai tous vérifiés en SQL.
+I built this end-to-end project for my Data Analyst / BI portfolio. It starts from a raw dataset of 1.5 million rows and ends with a 5-page Power BI dashboard. In between: a PostgreSQL data warehouse modelled as a star schema, loaded by a Python ETL, with every KPI checked in SQL.
 
-**Mes rapports d'analyse :** [🇫🇷 Français](docs/rapport_analyse_fr.md) · [🇬🇧 English](docs/analysis_report_en.md)
+**My analysis reports:** [🇬🇧 English](docs/analysis_report_en.md) · [🇫🇷 Français](docs/rapport_analyse_fr.md)
 
-> **English summary.** I built this end-to-end BI project on the Olist Brazilian e-commerce dataset (99k orders, 2016–2018). I load the raw CSV files into PostgreSQL, model them as a star schema with a Python ETL, and analyse them in Power BI with 34 DAX measures, each checked against a SQL reference value. Main findings: revenue grew +137% year on year, late deliveries cut the review score from 4.3 to 2.3, and 20% of sellers make 83% of revenue. Full details in my [English report](docs/analysis_report_en.md).
+![Dashboard overview](docs/images/01_vue_ensemble.png)
 
-![Vue d'ensemble du dashboard](docs/images/01_vue_ensemble.png)
-
-## Ce que j'ai trouvé
+## Key findings
 
 | | |
 |---|---|
-| **13,59 M R$** de CA produits · **99 441** commandes · **96 096** clients | **+137 %** de CA (janvier-août 2018 contre 2017) |
-| Note **4,29/5** à temps contre **2,27/5** en retard | Délai moyen **10,8 j** dans le Sudeste contre **22,6 j** dans le Norte |
-| **20 %** des vendeurs font **83 %** du CA | **3,1 %** de clients récurrents seulement |
-
-## Pourquoi ce projet
-
-*[À compléter : ce qui t'a donné envie de faire ce projet, pourquoi ce dataset, ce que tu voulais montrer.]*
+| **R$ 13.59 M** product revenue · **99,441** orders · **96,096** customers | **+137%** revenue (January–August 2018 vs 2017) |
+| Review score **4.29/5** on time vs **2.27/5** when late | Average delivery **10.8 days** in the Southeast vs **22.6 days** in the North |
+| **20%** of sellers make **83%** of revenue | Only **3.1%** repeat customers |
 
 ## Architecture
 
 ```
-data/raw/*.csv ──► staging (copie brute) ──► ETL Python ──► dwh (étoile) ──► Power BI
-  9 fichiers       load_staging.py           transform_load.py   8 tables      34 mesures DAX
-                                                   │
-                                     contrôles automatiques + valeurs de référence SQL
+data/raw/*.csv ──► staging (raw copy) ──► Python ETL ──► dwh (star schema) ──► Power BI
+   9 files         load_staging.py        transform_load.py    8 tables         34 DAX measures
+                                                 │
+                                  automated checks + SQL reference values
 ```
 
-**Stack :** Python 3.10+ (pandas, SQLAlchemy, psycopg2) · PostgreSQL 17 · Power BI Desktop (DAX, Power Query)
+**Stack:** Python 3.10+ (pandas, SQLAlchemy, psycopg2) · PostgreSQL 17 · Power BI Desktop (DAX, Power Query)
 
-## Mes choix de modélisation
+## My modelling choices
 
-![Modèle Power BI](docs/images/modele_power_bi.png)
+![Power BI model](docs/images/modele_power_bi.png)
 
-| Table | Grain | Contenu |
+| Table | Grain | Content |
 |---|---|---|
-| `fait_lignes_commande` | 1 article (112 650 lignes) | prix, frais de port |
-| `fait_commandes` | 1 commande (99 441 lignes) | montant payé, délai, retard, note d'avis, type de paiement |
-| `dim_date` | 1 jour | calendrier 2016-2018 |
-| `dim_client` | 1 client réel | `customer_unique_id`, ville, État, région, coordonnées |
-| `dim_vendeur` | 1 vendeur | ville, État, région, coordonnées |
-| `dim_produit` | 1 produit | catégorie (anglais et portugais), poids, photos |
-| `dim_statut` | 1 statut | delivered, shipped, canceled… |
+| `fait_lignes_commande` | 1 item (112,650 rows) | price, shipping fee |
+| `fait_commandes` | 1 order (99,441 rows) | amount paid, delivery time, lateness, review score, payment type |
+| `dim_date` | 1 day | 2016–2018 calendar |
+| `dim_client` | 1 real customer | `customer_unique_id`, city, state, region, coordinates |
+| `dim_vendeur` | 1 seller | city, state, region, coordinates |
+| `dim_produit` | 1 product | category (English and Portuguese), weight, photos |
+| `dim_statut` | 1 status | delivered, shipped, canceled… |
 | `dim_paiement` | 1 type | credit_card, boleto, voucher, debit_card |
 
-- **J'identifie les clients par `customer_unique_id`.** Dans les données Olist, `customer_id` change à chaque commande : l'utiliser aurait fait disparaître les clients récurrents.
-- **J'ai séparé deux tables de faits à des grains différents.** Paiements et avis sont propres à une commande. Les joindre au grain article aurait dupliqué les montants. Je les agrège donc au grain commande.
-- **J'utilise des clés substitutives entières**, avec un membre « inconnu » (clé `-1`) dans chaque dimension, pour ne perdre aucune ligne de fait.
-- **La date de livraison est une relation inactive**, que j'active en DAX avec `USERELATIONSHIP` quand j'analyse par date de livraison.
-- **J'utilise `TREATAS`** pour que les filtres produit et vendeur s'appliquent aussi à la note et au retard, mesurés au grain commande.
+Table and column names are in French (*fait* = fact, *commande* = order, *client* = customer, *vendeur* = seller, *produit* = product).
 
-## Le dashboard (5 pages)
+- **I identify customers by `customer_unique_id`.** In the Olist data, `customer_id` changes with every order: using it would have hidden all repeat customers.
+- **I split the data into two fact tables at different grains.** Payments and reviews belong to an order. Joining them at item grain would have duplicated amounts, so I aggregate them at order grain.
+- **I use integer surrogate keys**, with an "unknown" member (key `-1`) in every dimension, so no fact row is lost.
+- **Delivery date is an inactive relationship**, which I activate in DAX with `USERELATIONSHIP` when analysing by delivery date.
+- **I use `TREATAS`** so that product and seller filters also apply to review score and lateness, which are measured at order grain.
 
-| Page | Question à laquelle elle répond | Aperçu |
+## The dashboard (5 pages)
+
+| Page | Question it answers | Preview |
 |---|---|---|
-| Vue d'ensemble | Combien vend-on, et comment cela évolue-t-il ? | [capture](docs/images/01_vue_ensemble.png) |
-| Produits | Quelles catégories portent le CA ? | [capture](docs/images/02_produits.png) |
-| Logistique | Où et quand livre-t-on en retard ? | [capture](docs/images/03_logistique.png) |
-| Satisfaction | Qu'est-ce qui fait baisser la note ? | [capture](docs/images/04_satisfaction.png) |
-| Vendeurs et clients | Qui vend, qui achète, où ? | [capture](docs/images/05_vendeurs_clients.png) |
+| Vue d'ensemble (Overview) | How much do we sell, and how is it changing? | [screenshot](docs/images/01_vue_ensemble.png) |
+| Produits (Products) | Which categories drive revenue? | [screenshot](docs/images/02_produits.png) |
+| Logistique (Logistics) | Where and when are deliveries late? | [screenshot](docs/images/03_logistique.png) |
+| Satisfaction | What lowers the review score? | [screenshot](docs/images/04_satisfaction.png) |
+| Vendeurs et clients (Sellers and customers) | Who sells, who buys, and where? | [screenshot](docs/images/05_vendeurs_clients.png) |
 
-## Comment j'ai vérifié les chiffres
+## How I checked the numbers
 
-- [`docs/rapport_qualite.md`](docs/rapport_qualite.md) : avant toute transformation, j'ai profilé les données brutes (valeurs manquantes, doublons, incohérences).
-- `etl/transform_load.py` compare staging et entrepôt après chaque chargement : sommes des prix et des paiements, nombre d'articles et de commandes, unicité des commandes et des clients.
-- [`docs/valeurs_reference.md`](docs/valeurs_reference.md) : pour chaque KPI, j'ai calculé la valeur attendue en SQL. Chaque mesure DAX doit l'afficher à l'identique.
+- [`docs/rapport_qualite.md`](docs/rapport_qualite.md): before any transformation, I profiled the raw data (missing values, duplicates, inconsistencies).
+- `etl/transform_load.py` compares staging and warehouse after every load: total prices and payments, item and order counts, uniqueness of orders and customers.
+- [`docs/valeurs_reference.md`](docs/valeurs_reference.md): for every KPI, I computed the expected value in SQL. Each DAX measure must display exactly the same value.
 
-![Contrôles staging et dwh dans pgAdmin](docs/images/pg_04_controles.png)
+![staging vs dwh checks in pgAdmin](docs/images/pg_04_controles.png)
 
-Les autres captures PostgreSQL (schémas, diagramme ERD, volumes, requêtes d'analyse) sont dans mon [rapport d'analyse](docs/rapport_analyse_fr.md#vérification-dans-postgresql).
+The other PostgreSQL screenshots (schemas, ERD, row counts, analysis queries) are in my [analysis report](docs/analysis_report_en.md#checks-in-postgresql).
 
-## Difficultés rencontrées
-
-*[À compléter : les problèmes que tu as rencontrés et comment tu les as résolus.]*
-
-## Ce que j'ai appris
-
-*[À compléter : les compétences que ce projet t'a fait progresser.]*
-
-## Structure du dépôt
+## Repository structure
 
 ```
 olist-dashboard/
-├── data/raw/                  # 9 CSV Kaggle (non versionnés)
+├── data/raw/                  # 9 Kaggle CSV files (not versioned)
 ├── etl/
-│   ├── db.py                  # connexion PostgreSQL (lit .env) et chargement COPY
-│   ├── test_connexion.py      # test de connexion
-│   ├── check_raw.py           # présence et volume des CSV
-│   ├── explore_raw.py         # rapport qualité des données brutes
-│   ├── load_staging.py        # CSV vers le schéma staging
-│   ├── run_sql.py             # exécute un fichier SQL
-│   ├── transform_load.py      # ETL staging vers dwh, avec contrôles
-│   └── verify.py              # valeurs de référence des KPI
+│   ├── db.py                  # PostgreSQL connection (reads .env) and COPY loading
+│   ├── test_connexion.py      # connection test
+│   ├── check_raw.py           # CSV presence and row counts
+│   ├── explore_raw.py         # raw data quality report
+│   ├── load_staging.py        # CSV files into the staging schema
+│   ├── run_sql.py             # runs a SQL file
+│   ├── transform_load.py      # staging to dwh ETL, with checks
+│   └── verify.py              # KPI reference values
 ├── sql/
 │   ├── 00_create_schemas.sql
-│   ├── 01_create_dwh.sql      # modèle en étoile (tables, clés, index)
-│   └── 02_verifications.sql   # une requête de contrôle par KPI
+│   ├── 01_create_dwh.sql      # star schema (tables, keys, indexes)
+│   └── 02_verifications.sql   # one check query per KPI
 ├── powerbi/
-│   └── olist_dashboard.pbix   # le dashboard
+│   └── olist_dashboard.pbix   # the dashboard
 ├── docs/
-│   ├── rapport_analyse_fr.md  # rapport d'analyse (français)
 │   ├── analysis_report_en.md  # analysis report (English)
-│   ├── installation.md        # reproduire le projet
-│   ├── mesures_dax.md         # les 34 mesures DAX
-│   ├── rapport_qualite.md     # qualité des données brutes
-│   ├── valeurs_reference.md   # valeurs SQL de référence
-│   └── images/                # captures du dashboard et de PostgreSQL
-├── .env.example               # modèle du fichier d'identifiants
+│   ├── rapport_analyse_fr.md  # analysis report (French)
+│   ├── installation.md        # step-by-step setup (French)
+│   ├── mesures_dax.md         # the 34 DAX measures
+│   ├── rapport_qualite.md     # raw data quality
+│   ├── valeurs_reference.md   # SQL reference values
+│   └── images/                # dashboard and PostgreSQL screenshots
+├── .env.example               # credentials file template
 └── requirements.txt
 ```
 
-## Reproduire le projet
+## Run it yourself
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\activate
 python -m pip install -r requirements.txt
-copy .env.example .env        # puis renseigner le mot de passe PostgreSQL
+copy .env.example .env        # then fill in your PostgreSQL password
 
 python -m etl.test_connexion
 python -m etl.check_raw
@@ -128,17 +116,18 @@ python -m etl.transform_load
 python -m etl.verify
 ```
 
-Ouvrez ensuite `powerbi/olist_dashboard.pbix` et actualisez. Toutes les étapes et leurs vérifications sont détaillées dans [`docs/installation.md`](docs/installation.md).
+Then open `powerbi/olist_dashboard.pbix` and refresh. Every step and its checks are detailed in [`docs/installation.md`](docs/installation.md).
 
-## Données
+## Data
 
-[Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), sous licence CC BY-NC-SA 4.0. Les fichiers ne sont pas inclus dans ce dépôt.
+[Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), licensed CC BY-NC-SA 4.0. The files are not included in this repository.
 
-## Auteur
+## Author
 
-**[Ton nom complet]** · Data Analyst / BI
+**Said Ben Oukhanchouch** · Data Analyst / BI
 
-- GitHub : [@Saidbenou](https://github.com/Saidbenou)
-- LinkedIn : [ton profil](https://www.linkedin.com/in/[ton-identifiant])
+- Email: benoukhanchouch.said@gmail.com
+- GitHub: [@Saidbenou](https://github.com/Saidbenou)
+- LinkedIn: [Said Ben Oukhanchouch](https://www.linkedin.com/in/said-ben-oukhanchouch-aa91bb205/)
 
-N'hésitez pas à me contacter pour échanger sur ce projet.
+Feel free to reach out to discuss this project.

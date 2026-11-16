@@ -1,6 +1,6 @@
 # Olist : analyse des ventes, de la logistique et de la satisfaction client
 
-*Rapport d'analyse · **[Ton nom complet]** · Données : Olist Brazilian E-Commerce (Kaggle) · Montants en réais (R$), prix des articles hors frais de port*
+*Rapport d'analyse · **Said Ben Oukhanchouch** · Données : Olist Brazilian E-Commerce (Kaggle) · Montants en réais (R$), prix des articles hors frais de port*
 
 [English version](analysis_report_en.md) · [README](../README.md)
 
