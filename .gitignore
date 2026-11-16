@@ -1,0 +1,20 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.pyc
+
+# Identifiants (seul .env.example est versionné)
+.env
+
+# Données brutes Kaggle (à télécharger, voir docs/installation.md)
+data/raw/*
+!data/raw/.gitkeep
+
+# Notes de travail personnelles
+docs/guide_powerbi.md
+
+# Fichiers temporaires Power BI et éditeur
+~$*.pbix
+.vscode/
+.DS_Store
+Thumbs.db
